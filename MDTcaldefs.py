@@ -108,8 +108,8 @@ import tkSimpleDialog
 #     output: data list, and the delta. (sample period)
 #     status: Boolean operator, True = data was successfully loaded
 #
-def file_preview(infile):
-    st=read(infile)
+def file_preview(infile,ftype):
+    st=read(infile, format = ftype)
     st.plot(color = 'blue',size=(500,200),ti_rotation=90)
     return()
 
