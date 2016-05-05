@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
-# Version 20160421 - Ken Abrams & Daniel Burk
+# Version 20160428b - Ken Abrams & Daniel Burk
 #
-# 20160421 - Set the default directory as the initial target when opening sigcal process dialog
+# 20160428b - Make calcon load def , add calcon print debugs
+# 20160424  - Fix file update when viewing/calcuculating fp/damping, combine veiwperiod/damping to viewsample def
+# 20160421  - Set the default directory as the initial target when opening sigcal process dialog
 
 
 from Tkinter import *
+import sys
 import MDTcaldefs
 import tkMessageBox, tkFileDialog
 import string
@@ -36,81 +39,18 @@ import subprocess
 # OF SUCH DAMAGES.
  
 def BrowseDefaultDir(root_window,calcon_in,DirNameVar,):
-    DirName=tkFileDialog.askopenfilename(parent=root_window,initialdir=calcon_in['target_dir'], \
+    startdir = string.rstrip(calcon_in['target_dir'])
+    startdir = string.rstrip(startdir,"\\") #          Strip off the backslash
+    DirName=tkFileDialog.askdirectory(parent=root_window,initialdir=startdir, \
         title = 'Select Default Directory')
-    endloc=string.rfind(DirName,'/')+1
-    DirName = string.replace(DirName[:endloc], "/", "\\")
+#    endloc=string.rfind(DirName,'/')+1   # 
+    DirName = string.replace(DirName, "/", "\\")
     DirNameVar.set(DirName)
-    calcon_in['target_dir'] = DirName
+    calcon_in['target_dir'] = DirName+"\\"            # Restore the backslash	
 
-	
-def BrowsePeriodFile(root_window,FileNameVar,defaultdir):
-    myFormats = [
-    ('SAC File','*.sac'),
-    ('CSS File','*.css'),
-    ('Mini SEED File','*.mseed'),
-    ('All Files','*')
-    ]
-    FileName=tkFileDialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
-        title = 'Select Free Period File')
-    FileNameVar.set(string.replace(FileName, "/", "\\"))
-#    entry_field.configure(text=FileName) 
-    return(FileName)
-
-def CalcFreePeriod (calcon_in,free_file_in,free_period_in):
-    calcon_in['free_file']=free_file_in.get()
-    freeval = MDTcaldefs.freeperiod(root,calcon_in)
-    calcon_in['Free_period']= freeval
-    free_period_in.set(freeval)
-
-def BrowseDampingFile(root_window,FileNameVar,defaultdir):
-    myFormats = [
-    ('SAC File','*.sac'),
-    ('CSS File','*.css'),
-    ('Mini SEED File','*.mseed'),
-    ('All Files','*')
-    ]
-    FileName=tkFileDialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
-        title = 'Select Damping File')
-    FileNameVar.set(string.replace(FileName, "/", "\\"))
-#    entry_field.configure(text=FileName) 
-    return(FileName)
-    
-def CalcDampingRatio (calcon_in,damping_file_in,damping_ratio_in):
-    calcon_in['damping_file']=damping_file_in.get()
-    damping = MDTcaldefs.dampingratio(root,calcon_in)
-    calcon_in['damping_ratio']= damping
-    damping_ratio_in.set(damping)
-    
-    
-# function to call sac file preview if not empty
-def ViewPeriod(FileName):
-    if len(FileName)==0:
-        tkMessageBox.showwarning("ERROR","No file selected")
-    else:
-        MDTcaldefs.file_preview(FileName)
-        
-# function to call sac file preview if not emty
-def ViewDamping(FileName):
-#    if empty(DampingFile.get()):
-#        tkMessageBox.showwarning("ERROR","No file selected")
-    if len(FileName)==0:
-        tkMessageBox.showwarning("ERROR","No file selected")
-    else:
-        MDTcaldefs.file_preview(FileName)        
-        
-def CallSigCal(root_window,calcon_in):
-
-
-    filez = tkFileDialog.askopenfilenames(parent=root_window,title='Choose a file',initialdir=calcon_in['target_dir'])
-
-
-# convert from unicode to str file list
-    files = []
-    for file in filez:
-        files.append(string.replace(str(file), "/", "\\"))
-
-# map input fields to calcon
+# Loads all current tkinter data fileds to Calcon structure
+#   to be called just before any MDTcaldefs functions
+def LoadCalCon(calcon_in):
     calcon_in['station']=StationName.get()
     calcon_in['network']=StationNetwork.get()
     calcon_in['s_chname']=SensorName.get()
@@ -119,40 +59,126 @@ def CallSigCal(root_window,calcon_in):
     calcon_in['l_chsen']=float(LaserSen.get())
     calcon_in['l_sen']=float(LaserReso.get())
     calcon_in['l_calconst']=float(LaserCal.get())
-    calcon_in['target_dir']=DefaultDir.get()
+    calcon_in['target_dir']=str(DefaultDir.get())
     calcon_in['damping_ratio']=float(DampingValue.get())
-    calcon_in['damping_ratio_source']=DampingFile.get()
+    calcon_in['damping_ratio_source']=str(DampingFile.get())
     calcon_in['free_period']=float(FreeValue.get())
-    calcon_in['free_period_source']=FreeFile.get()
+    calcon_in['free_period_source']=str(FreeFile.get())
     calcon_in['file_type']=DataFormat.get()
-    
+
+def BrowsePeriodFile(root_window,FileNameVar,DirNameVar):
+    myFormats = [
+    ('SAC File','*.sac'),
+    ('CSS File','*.wfd'),
+    ('Mini SEED File','*.mseed,*.msd,*.ms'),
+    ('All Files','*')
+    ]
+#   get default directory off of screen 
+    defaultdir = DirNameVar.get()
+#   browse for data file using default directory    
+    FileName=tkFileDialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
+        title = 'Select Free Period File')
+    print '\nFree Period File Selected: {}'.format(FileName)
+    FileNameVar.set(string.replace(FileName, "/", "\\"))
+
+def CalcFreePeriod (calcon_in,free_file_in,free_period_in):
+#   make sure CalCon is loaded    
+    LoadCalCon(calcon_in)
+#   show CalCon structure contents before calculation for troubleshooting
+    print '*** Start Calc Free Period ***'
     print calcon_in
+#   call freeperiod calc with root tkninter window & CalCon structure     
+    freeval = MDTcaldefs.freeperiod(root,calcon_in)
+#   update the CalCon with calculated value
+    calcon_in['free_period']= freeval
+#   update screen field with calc value
+    free_period_in.set(freeval)
+
+def BrowseDampingFile(root_window,FileNameVar,DirNameVar):
+    myFormats = [
+    ('SAC File','*.sac'),
+    ('CSS File','*.wfd'),
+    ('Mini SEED File','*.mseed'),
+    ('All Files','*')
+    ]
+#   get default directory off of screen    
+    defaultdir = DirNameVar.get() 
+#   browse for data file using default directory   
+    FileName=tkFileDialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
+        title = 'Select Damping File')
+    print 'Damping File Selected: {}'.format(FileName)
+    FileNameVar.set(string.replace(FileName, "/", "\\"))
     
+def CalcDampingRatio (calcon_in,damping_file_in,damping_ratio_in):
+#   make sure CalCon is loaded    
+    LoadCalCon(calcon_in)
+#   show CalCon structure contents before calculation for troubleshooting
+    print '\n*** Start Calc Damping Ratio ***'
+    print calcon_in
+#   call dampingratio calc with root tkninter window & CalCon structure 
+    damping = MDTcaldefs.dampingratio(root,calcon_in)
+#   load calculated damping back into CalCon
+    calcon_in['damping_ratio']= damping
+#   Update screen with value
+    damping_ratio_in.set(damping)
+    
+# function to call sac file preview if not empty
+def ViewSample(file_name_in):
+    FileName = file_name_in.get()
+    if len(FileName)==0:
+        tkMessageBox.showwarning("ERROR","No file selected")
+    else:
+        MDTcaldefs.file_preview(FileName)
+        
+def CallSigCal(root_window,calcon_in):
+    selectedType=DataFormat.get()
+
+    myFormats = [
+    ('SAC files','*.sac'),
+    ('CSS files','*.wfd'),
+    ('Miniseed files','*.mseed,*.msd,*.ms'),
+    ('All files','*.*')
+    ]
+
+    filez = tkFileDialog.askopenfilenames(parent=root_window,title='Use <shift> or <CTRL> to select the data files to include for processing:', \
+            initialdir=calcon_in['target_dir'], \
+            filetypes=myFormats)
+
+# convert from unicode to str file list
+    files = []
+    for file in filez:
+        files.append(string.replace(str(file), "/", "\\"))
+  
+#   make sure CalCon is loaded    
+    LoadCalCon(calcon_in)
+#   show CalCon structure contents before calculation for troubleshooting
+    print '\n*** Start Signal Calibration ***'
+    print calcon_in  
 # call sigcal with list    
     MDTcaldefs.sigcal(calcon_in,files)
             
 
 def main():
 #   setup main data structure
-    calcon = {'s_chname':'SM3',\
-          's_chsen':0.945,\
-          'l_chname':'LASER',\
-          'l_chsen':0.945,\
+    calcon = {'s_chname':'',\
+          's_chsen':0.9455,\
+          'l_chname':'LZR',\
+          'l_chsen':0.9455,\
           'l_sen':1.00,\
           'l_calconst':0.579,\
-          'target_dir':'c:\\seismo\\saccal\\',\
+          'target_dir':'c:\\Calibration\\',\
           'damping_ratio':0.707, \
-          'damping_ratio_source':"C:\\seismo\\saccal\\damping\\2015_9_9_16_3_59_641_MSU_LNSM_SM3.sac", \
+          'damping_ratio_source':"", \
           'free_period':0.880,\
-          'free_period_source':"C:\\seismo\\saccal\\freeperiod\\00000000_LASER.sac", \
+          'free_period_source':"", \
           'file_type':"sac",\
-          'station':'NE8K',\
+          'station':'MSU',\
           'network':'LM' }
     
 # Setup GUI window
     global root
     root = Tk()
-    root.title(string='MDT Seismic Sensor Calibration - v1.0')
+    root.title(string='MDT Seismic Sensor Calibration - v20160428b')
 #root.geometry('200x210+350+70')
 
 
@@ -242,7 +268,7 @@ def main():
 
     FreePeriodFileEntry = Entry(root, bg='white',textvariable=FreeFile).grid(row=12, column=1, columnspan=6,sticky=W+E)
     FreePeriodBrowse = Button(root, text=' BROWSE ', command=lambda: BrowsePeriodFile(root,FreeFile,DefaultDir)).grid(row=12,column=7,padx=5,sticky=W+E)
-    FreePeriodView   = Button(root, text='  VIEW  ', command=lambda: ViewPeriod(calcon['free_period_source'])).grid(row=13,column=7,padx=5,sticky=W+E)
+    FreePeriodView   = Button(root, text='  VIEW  ', command=lambda: ViewSample(FreeFile)).grid(row=13,column=7,padx=5,sticky=W+E)
 
     FreePeriodCalc   = Button(root, text=' CALCULATE',command=lambda: CalcFreePeriod(calcon,FreeFile,FreeValue)).grid(row=13, column=1,pady=3)
 
@@ -262,7 +288,7 @@ def main():
     
     DampingFileEntry = Entry(root, bg='white',textvariable=DampingFile).grid(row=16, column=1, columnspan=6,sticky=W+E)
     DampingBrowse = Button(root, text=' BROWSE ', command=lambda: BrowseDampingFile(root,DampingFile,DefaultDir)).grid(row=16,column=7,padx=5,sticky=W+E)
-    DampingView   = Button(root, text='  VIEW  ', command=lambda: ViewPeriod(calcon['damping_ratio_source'])).grid(row=17,column=7,padx=5,sticky=W+E)
+    DampingView   = Button(root, text='  VIEW  ', command=lambda: ViewSample(DampingFile)).grid(row=17,column=7,padx=5,sticky=W+E)
     
     DampingCalc   = Button(root, text=' CALCULATE', command=lambda: CalcDampingRatio(calcon,DampingFile,DampingValue)).grid(row=17, column=1,pady=3)
 
@@ -284,6 +310,9 @@ def main():
     SigCalButton = Button(root,text=' PROCESS SIGCAL',command=lambda: CallSigCal(root,calcon)).grid(row=24,column=1,pady=7)
 #SigCalButton.config(state=NORMAL)
 
+#Exitbutton setup
+    ExitButton = Button(root,text=' EXIT program',command=lambda: sys.exit()).grid(row=24,column=3)
+#    ExitButton = Button(root,text=' EXIT program').grid(row=24,column=3)
 
 # Preload calcontrol file if exists
 #SigCalButton.config(state=DISABLED)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 __author__ = "Daniel Burk <burkdani@msu.edu>"
-__version__ = "20160414"
+__version__ = "20160428"
 __license__ = "MIT"
 
 """
@@ -114,21 +114,35 @@ def file_preview(infile):
     return()
 
 def dataload(infile,target_channel,ftype):
-    #print "Attempting to load data file."
+#    print "Attempting to load data file {}".format(infile)
+#    print "Target channel is {}.".format(target_channel)
+#    print "File type is set to {}".format(ftype)
+    fileformat = string.lower(ftype)
+#    print "{} \n".format(fileformat)
     status = False
     delta = 999    # seconds per sample
+    target_channel = target_channel[:3]
+
 
     if string.lower(ftype) !='css':
         st = read(infile) # opens the non-css stream
         for i in range(len(st)):
-            if string.lower(target_channel) == string.lower(st[i].stats.channel):
+#            print "'{0}' = '{1}' ? ".format(string.lower(target_channel)[0:3],string.lower(st[i].stats.channel)[0:3])
+            if string.lower(target_channel)[0:3] == string.lower(st[i].stats.channel)[0:3]:
                 output = st[i].data
                 delta = st[i].stats.delta
                 status = True
-#    else:                     # oops, its a css file
-#        st = read(infile) # unlike the sac & mseed, this points to a .wfd file full of pointers.
-#        # it gets fuzzy from here, as we might have multiple streams for the same channel.
-#        # So how do we select the right one? Right now, css just drops out with a False status
+ #               print " output set to {}".format(st[i].stats.channel)
+    else:                     # oops, its a css file
+        st = read(infile, format = "css") # unlike the sac & mseed, this points to a .wfd file full of pointers.
+        for i in range(len(st)):   
+            if string.lower(target_channel) == string.lower(st[i].stats.channel):
+                output = st[i].data
+                delta = st[i].stats.delta
+                status = True 
+
+        # it gets fuzzy from here, as we might have multiple streams for the same channel.
+        # So how do we select the right one? Right now, css just drops out with a False status
 #
 
     return(output,delta,status)
@@ -162,10 +176,16 @@ def freeperiod(root_window,calcon):
 #     Assume that the code calling this def has provided us with the file 
 #     containing the stream
 #
+#                       Dan Burk prefers to use the Laser channel for this measurement.
     Frequency = 1.0
     try:
         infile = calcon['free_period_source'] # file name
-        target_channel = calcon['l_chname']    # laser channel name
+        if calcon['l_chname'] in calcon['free_period_source']:
+ 
+            target_channel = calcon['l_chname']    # laser channel name
+        else:
+            target_channel = calcon['s_chname']    # If user picked sensor, use that. 
+
         filetype = calcon['file_type']
         laser,delta,status = dataload(infile,target_channel,filetype)
 
@@ -179,6 +199,7 @@ def freeperiod(root_window,calcon):
         plt.plot(x,laser)
         plt.xlabel("Find beginning sample number. Place cursor on the 1st few cycles of the impulse.")
         plt.ylabel("Counts from the digitizer.")
+        plt.ion()         # Start a separate thread for interaction
         plt.show()
 #
 #                                     Get 1st sample number from the user
@@ -226,7 +247,8 @@ def freeperiod(root_window,calcon):
         plt.plot(ET,sense)
         plt.xlabel("Time (in seconds)    Free period frequency = {:.3f} Hz".format(Frequency))
         plt.ylabel("Counts")
-        figure_name = calcon['target_dir']+caltime+"_freeperiod_"+calcon['s_chname']+".png"
+        figure_name = calcon['target_dir']+caltime+"_freeperiod_"+target_channel+".png"
+#        figure_name = calcon['target_dir']+caltime+"_dampingratio_"+calcon['s_chname']+".png"
         plt.savefig(figure_name)
 #        plt.show()
         plt.close()
@@ -265,10 +287,30 @@ def firfilt(interval, freq, sampling_rate):  # Interval is the array upon which 
 #
 
 def dampingratio(root_window,calcon):
+#    print calcon['s_chname']                # = sensor channel name
+#    print calcon['s_chsen']                 #= sensor #sensitivity in uv/count
+#    print calcon['l_chname']                # = laser position sensor channel name
+#    print calcon['l_chsen']                 #- laser position sensor channel sensitivity in uv/count
+#    print calcon['l_sen']                   #= laser position sensor sensitivity in V/mm
+    print calcon['l_calconst']              #= geometry correction ratio between center of mass & laser target
+    print calcon['target_dir']              #= target directory for storage of output files
+    print calcon['damping_ratio']           #= calculated damping ratio
+    print calcon['damping_ratio_source']    #= source file for damping ratio calculation
+    print calcon['free_period']             #= calculated free period in Hz
+    print calcon['free_period_source']      #= source file for free period calculation
+    print calcon['file_type']               #= type of files used in the calibration.
+    print calcon['station']                 #= Station designator
+    print calcon['network']
+
     damping_ratio = 0.707
     try:
         infile = calcon['damping_ratio_source'] # file name
-        target_channel = calcon['s_chname']     # sensor channel name
+        if calcon['s_chname'] in calcon['damping_ratio_source']:
+
+            target_channel = calcon['s_chname']     # sensor channel name
+        else:
+            target_channel = calcon['l_chname']
+
         filetype = calcon['file_type']          # data file type
         sensor,delta,status = dataload(infile,target_channel,filetype)
 
@@ -297,6 +339,7 @@ def dampingratio(root_window,calcon):
         plt.plot(x,sensor)
         plt.xlabel("Use ZOOM to find starting & ending sample # for each impulse.")
         plt.ylabel("Counts from the digitizer.")
+        plt.ion()          #   Put focus onto the dialog box for user input
         plt.show()
         
 #        keyboard = raw_input('\n\n How many impulses have you measured? ')
@@ -416,11 +459,11 @@ def dampingratio(root_window,calcon):
         for i in range(0,len(sensor)):
             ET.append(i*delta)
         plt.plot(ET,sensor)
-        title = "Damping Ratio calculation on "+caltime
+        title = "Damping Ratio calculation on "+caltime+" using channel :"+target_channel
         plt.title(title) 
         plt.xlabel("Time (in seconds)    Mean damping ratio = {:.3f} ".format(ha))
         plt.ylabel("Counts")
-        figure_name = calcon['target_dir']+caltime+"_dampingratio_"+calcon['s_chname']+".png"
+        figure_name = calcon['target_dir']+caltime+"_dampingratio_"+target_channel+".png"
         plt.savefig(figure_name)
         plt.show()
         plt.close()
@@ -454,7 +497,7 @@ def dampingratio(root_window,calcon):
 def sacparse(filelist,senchan,lsrchan):
     sensorfiles = []
     laserfiles = []
-#    print "senchan set to: {0} and lsrchan set to: {1} \n File list contains {2} items.".format(senchan,lsrchan,len(filelist))
+    print "senchan set to: {0} and lsrchan set to: {1} \n File list contains {2} items.".format(senchan,lsrchan,len(filelist))
     for i in range(0,len(filelist)):
 
         if senchan in filelist[i]:
@@ -466,8 +509,11 @@ def sacparse(filelist,senchan,lsrchan):
     laserfiles.sort(key=str.lower)
     print "A total of {} sensor/laser channel sets found.".format(len(laserfiles))
     if len(sensorfiles)!=len(laserfiles):
-        print "Warning!! Sensor{0}/laser{1} channel set mismatch! Calibration may be invalid." \
+        print "Warning!! Sensor length {0} vs laser length {1} \n channel set mismatch! Calibration may be invalid." \
               .format(len(sensorfiles),len(laserfiles))
+        print " Ensure that when you designate input files, that there is a laser position sensor channel file for"
+        print " every channel sensor file. They must match!"
+#        sys.exit()
     return(sensorfiles,laserfiles)
 
 
@@ -768,6 +814,8 @@ def sigcal(calcon,files):
                                  # create a list of matched channel files for each frequency
 
         for n in range(0,len(sensorfiles)):
+            print "{0}, {1}, {2} \n ".format(sensorfiles[n],calcon['s_chname'],calcon['file_type'])
+            print "{0}, {1}, {2} \n ".format(laserfiles[n],calcon['l_chname'],calcon['file_type'])
             sensordata,delta,status = dataload(sensorfiles[n],calcon['s_chname'],calcon['file_type'])
             laserdata, delta,status = dataload(laserfiles[n], calcon['l_chname'],calcon['file_type'])
 
@@ -801,66 +849,63 @@ def sigcal(calcon,files):
             infile_laser.append(laserfiles[n])
             
 
-#    if filetype == "css":                    # Start working on bringing in the css file format
-#        frequency = []  
-#        sensor = []
-#        laser = []
-#        calnum = []
-#        filenames = []
-#        rn = []
-#        h = []
-#        gm_correct = []
-#        senchan = cconstant[1]  #  cal_constants[((cal_constants[13]*2)+1)] # This points at the name of the sensor channel
-#        lsrchan = cconstant[3]  #  cal_constants[((cal_constants[14]*2)+1)] 
-		# Remember that the file name references the wfd containing the file names and they all get loaded at once.
-		# So, we need to open the wfd here. Then, we need to parse through the paired streams and feed them into the loader.
-		# This IS NOT like the SAC file or miniseed at all. The user must ensure that there is only one wfd in the cal directory.
-		# Create a css parse definition that will:
-
+    if filetype == "css":                    # Start working on bringing in the css file format
+        frequency = []  
+        sensor = []
+        laser = []
+        calnum = []
+        filenames = []
+        rn = []
+        h = []
+        gm_correct = []
+        senchan = cconstant[1]  #  cal_constants[((cal_constants[13]*2)+1)] # This points at the name of the sensor channel
+        lsrchan = cconstant[3]  #  cal_constants[((cal_constants[14]*2)+1)] 
+	# Remember that the file name references the wfd containing the file names and they all get loaded at once.
+	# So, we need to open the wfd here. Then, we need to parse through the paired streams and feed them into the loader.
+	# This IS NOT like the SAC file or miniseed at all. The user must ensure that there is only one wfd in the cal directory.
+	# Create a css parse definition that will:
 		# - Make a list of paired channelsets
-		
-		#cssparse should return:
+	
+	#cssparse should return:
 		# The streams (css_stream)
 		# The list of paired channel streams (element list): streamlist[0] - sensor, streamlist[1] laser
 		# 
-#        for i in range(0,len(filelist)): # each file is a list of files. 
+        for i in range(0,len(filelist)): # each file is a list of files. 
 		    # For each file, first audit the file.
 			# - Audit the wfd wfdaudit(cwd,wfdin) return--> wfdout which is the filename of the cleaned wfd
-#            wfd =read(wfdaudit(wdir,filelist[i]),format = "css")
+            wfd =read(wfdaudit(wdir,filelist[i]),format = "css")
 
 			# Then, load the streams from that file
-#            streamlist0 = []
-#            streamlist1 = []
-#            print senchan, lsrchan
-#            for j in range(0,len(wfd)):
-#                if senchan == wfd[j].stats.channel:
-#                    streamlist0.append(j)
-#                if lsrchan == wfd[j].stats.channel:
-#                    streamlist1.append(j)
-#            streamlist = [streamlist0,streamlist1] # Streamlist is a list of streams matching sensor and laser
-					
+            streamlist0 = []
+            streamlist1 = []
+            print senchan, lsrchan
+            for j in range(0,len(wfd)): #           j is the list number and streamlist is a listing of those numbers
+                if senchan == wfd[j].stats.channel: # that correspond to streams containing that senchan data
+                    streamlist0.append(j)
+                if lsrchan == wfd[j].stats.channel:
+                    streamlist1.append(j)
+            streamlist = [streamlist0,streamlist1] # Streamlist is a list of streams matching sensor and laser
+				
 		
-#            for n in range(0,len(streamlist[0])): # n represents the number of paired channel streams are located in the directory
+            for n in range(0,len(streamlist[0])): # n represents the number of paired channel streams are located in the directory
 		    # cssload needs to bring in the streams, parse the time-history into two lists, and output the delta.
- #               data = cssload(wfd[streamlist[0][n]],wfd[streamlist[1][n]]) # The data is derived from the matched streams.
+               data = cssload(wfd[streamlist[0][n]],wfd[streamlist[1][n]]) # The data is derived from the matched streams.
             #     data[0] is the sensor data 
 			
             #     data[1] is the laser data 
             #     data[2] is the delta (sample period in seconds) 
- #               (freq,senrms,lasrms,cal,resonance,damprat,gm_c) = process(data[0],data[1],data[2],cconstant) # cal_constants) # Process the file and output to outfile based on parameters
+               (freq,senrms,lasrms,cal,resonance,damprat,gm_c) = process(data[0],data[1],data[2],cconstant) # cal_constants) # Process the file and output to outfile based on parameters
 
             # Process input arguments are sensor data, laser data, delta and cal_constants
 
- #               frequency.append(freq)
- #               sensor.append(senrms)
- #               laser.append(lasrms)
- #               calnum.append(cal)
- #               rn.append(resonance)
- #               h.append(damprat)
- #               gm_correct.append(gm_c)
- #               filenames.append(filelist[i])
-
-
+               frequency.append(freq)
+               sensor.append(senrms)
+               laser.append(lasrms)
+               calnum.append(cal)
+               rn.append(resonance)
+               h.append(damprat)
+               gm_correct.append(gm_c)
+               filenames.append(filelist[i])
 
 #
 #                                              Write the calibrations to cal output file
@@ -1331,7 +1376,7 @@ msu_damp, amp_average, amp_label, channel, sac_pz_file,target_dir,caltime):
     print txt
     plt.savefig( fig )
 #    plt.show()
-#    plt.close()
+    plt.close()
 
 # end of function plot_response_curves
 

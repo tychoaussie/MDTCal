@@ -1,8 +1,6 @@
 __author__ = "Daniel Burk <burkdani@msu.edu>"
-__version__ = "20160410"
+__version__ = "20160408"
 __license__ = "MIT"
-
-# 20160410 - Bypass DAt2ASC's sequential file conversion to make a SAC file for each DAT file.
 
 # 20160408 Obspy completely changed out the SAC handler necessitating a change to all code.
 # You must upgrade to Obspy version 1.0.1 or later for this code to work. Otherwise, look to the Github
@@ -43,7 +41,7 @@ import numpy as np
 import string                              # We use the string.find utility for file naming
 import time                                # we use the sleep function to enable conversion of the DAT
 import subprocess                          # used for the execution of command-line programs
-
+from obspy import read
 from obspy.io.sac import SACTrace
 
 # Now, the most important part -- The legalese:
@@ -142,7 +140,7 @@ def getcal(calcontrol):
     except:
         print "Calibration control file not found!\n"
         print "You may enter the calibration information manually, or else press <ctrl>C"
-        print "then place the cal control file in the directory containing the data files."
+        print "then place the cal control file in the folder directly above the one containing the data files.(i.e. ../)"
         cconstant = ["","",1.0,"",1.0,"",1.0,"",1.0,1.0,1.0,1.0,1.0,2,3,""]
         try:
             cconstant[15] = raw_input('Enter the Network code: ') # Network code
@@ -262,7 +260,7 @@ def csv2sac(infile,cconstant):
     if first_sample <> 0:
         print "\n\nA timing error exists in the 1st sample of the 1st record in this DAT series.\n"
         print "Remove the first DAT file in the folder and try again."
-        sys.exit()
+    #    sys.exit()
 
    # print "The first sample shows instantaneous sample rate of {} S/second.".format(medsps)
 
@@ -290,13 +288,11 @@ def csv2sac(infile,cconstant):
 
     Delta = 1.0/float(getsps(stack))
 
-#    Delta = 1/medsps
-
     print "Delta = {0:.8f}, Sample rate = {1:.8f}".format(Delta,1/Delta)  
     sacfile = outfile[:string.find(infile,'.')]+'{}'.format(i)+'.sac'
         #
         # stack[1] = channel 1 time history
-        # .
+        # 
         #
         # stack[4] = channel 4 time history
         #
@@ -329,12 +325,18 @@ def csv2sac(infile,cconstant):
         t.kuser0=units[i-1]        # Place the system of units into the user text field 0
 
         f = outfile+"_{}.sac".format(Channel[i])
+        f2 = outfile+"_{}.mseed".format(Channel[i])
 
         if Channel[i] !="UNK":   # We do not write streams in which the channel name is UNK
             with open(f,'wb') as sacfile:
                 t.write(sacfile)
-            print " File successfully written: {0}_{1}.sac".format(outfile,Channel[i])       
             sacfile.close()
+            st=read(f)
+            st.write(f2,format="mseed")
+            print " File successfully written: {0}_{1}.sac".format(outfile,Channel[i])
+            subprocess.call(["del",f],shell=True)            
+
+
 
 #    for i in range(0,1): # Build special channel for timing
 
@@ -376,13 +378,9 @@ def convert(infile,cconstant):
     print infile
     target = infile[string.rfind(infile,"\\")+1:string.find(infile,'.')]+".cs4"
     outfile = infile[:string.find(infile,'.')]+".cs4"
-    tempfile = infile[:string.rfind(infile,"\\")+1]+"temp.cs4"
     dat2csvfile = infile[:string.rfind(infile,"\\")+1]+"Dat2asc-301-Data.cs4"
 
-    subprocess.call(["copy",infile,tempfile],shell=True)
-    print "The temp file is being called {}\n".format(tempfile)
-    subprocess.call(["c:\\Anaconda\\dat2asc.exe",tempfile,"cs4"])
-    subprocess.call(["del",tempfile],shell=True)
+    subprocess.call(["c:\\Anaconda\\dat2asc.exe",infile,"cs4"])
     print "convert {} to: \n".format(dat2csvfile)
     print outfile
 
@@ -390,6 +388,7 @@ def convert(infile,cconstant):
     csv2sac(outfile,cconstant)
     subprocess.call(["del",outfile],shell=True)
     subprocess.call(["del",infile[:string.rfind(infile,"\\")+1]+"dat2asc-*.asc"],shell=True)
+    
 
 
 def main():
@@ -400,7 +399,7 @@ def main():
                                       # as well as the calibration control file, c:\seismo\caldta\calcontrol.csv
                                       # The third option can designate an optional location for the calcontrol file.
                                       #
-    version = '20160410'              # Version number of this software
+    version = '20160408'              # Version number of this software
     optioncount = len(sys.argv)
     outputfile_defined = False
     filelist = []
@@ -442,24 +441,21 @@ def main():
 
     for n in range(1,len(filelist)):                                
         if ".dat" in filelist[n]:
-            infile = directory+filelist[n]
-            print "Converting: ",infile
-            convert(infile,cconstant)
-#            try:                    
-#                filenum1= int(filelist[n][string.rfind(filelist[n],'.')-8:string.rfind(filelist[n],'.')])
-#                try: 
-#                    filenum0= int(filelist[n-1][string.rfind(filelist[n-1],'.')-8:string.rfind(filelist[n-1],'.')]) # If 
-#                    if ((filenum1-filenum0)!=1):                    # Skip sequential files that have likely been converted with prev. file
-#                        infile = directory+filelist[n]
-#                        print "Converting: ",infile
-#                        convert(infile,cconstant)
-#                except:                                             # previous file failed but this one does not.
-#                    infile = directory+filelist[n]     
-#                    print "Converting: ",infile
-#                    convert(infile,cconstant)
-#            except:
-#                print "File {} does not comply to standard symmetric research naming formats and must be manually converted.".format(filelist[n])
-#                print "This program requires the Symres DAT2ASC.exe source code from December, 2015 located on github"
+            try:                    
+                filenum1= int(filelist[n][string.rfind(filelist[n],'.')-8:string.rfind(filelist[n],'.')])
+                try: 
+                    filenum0= int(filelist[n-1][string.rfind(filelist[n-1],'.')-8:string.rfind(filelist[n-1],'.')]) # If 
+                    if ((filenum1-filenum0)!=1):                    # Skip sequential files that have likely been converted with prev. file
+                        infile = directory+filelist[n]
+                        print "Converting: ",infile
+                        convert(infile,cconstant)
+                except:                                             # previous file failed but this one does not.
+                    infile = directory+filelist[n]     
+                    print "Converting: ",infile
+                    convert(infile,cconstant)
+            except:
+                print "File {} does not comply to standard symmetric research naming formats and must be manually converted.".format(filelist[n])
+                print "This program requires the Symres DAT2ASC.exe source code from December, 2015 located on github"
 
 #
 # Check and run the main function here:
