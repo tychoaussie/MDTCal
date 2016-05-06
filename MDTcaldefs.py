@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 __author__ = "Daniel Burk <burkdani@msu.edu>"
-__version__ = "20160428"
+__version__ = "20160506"
 __license__ = "MIT"
+
+# Ran into a problem with KUR data having bad sections that made it through the "chunk" selection
+# process, so I am trying a better chunk size selection process. Also including a "quality"
+# metric to see if there is a way of judging the file's stability.
 
 """
 Sigcal core functions for: Freeperiod, Dampingratio, Mass Displacement tracking processing
@@ -108,8 +112,8 @@ import tkSimpleDialog
 #     output: data list, and the delta. (sample period)
 #     status: Boolean operator, True = data was successfully loaded
 #
-def file_preview(infile,ftype):
-    st=read(infile, format = ftype)
+def file_preview(infile):
+    st=read(infile)
     st.plot(color = 'blue',size=(500,200),ti_rotation=90)
     return()
 
@@ -642,7 +646,8 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
                    'sensitivity':0.0,           \
                    'freeperiod':resfreq,        \
                    'h':calcon['damping_ratio'], \
-                   'gmcorrect':lcalconst}
+                   'gmcorrect':lcalconst,      \
+                   'R':0.0}
 
 
                                       #            
@@ -661,20 +666,33 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
     laser1 = []
     laser2 = []
    # print "The length of the sensor chunk for this file is {} samples.".format(len(sensor)/2)
-    for i in range(0,len(sensor)/2):
-        sensor1.append(sensor[i]) # take the first 4096 samples
-        sensor2.append(sensor[(len(sensor)-(len(sensor)/2)+i)]) # Take the last 4096 samples
+    if len(sensor)<4096:
+        chunk = len(sensor)/2
+    elif len(sensor)>8192:
+        chunk = 4096
+    else:
+        chunk = 2048    
+
+    for i in range(0,chunk):
+        sensor1.append(sensor[i]) # take the first n samples
+        sensor2.append(sensor[(len(sensor)-chunk+i)]) # Take the last n samples
         laser1.append(laser[i]) # take the first 4096 samples
-        laser2.append(laser[(len(laser)-(len(sensor)/2)+i)]) # take the last 4096 samples
+        laser2.append(laser[(len(laser)-chunk+i)]) # take the last 4096 samples
     
     ratio1 = np.std(sensor1)*np.std(laser1)
     ratio2 = np.std(sensor2)*np.std(laser2)
-    if ratio1<ratio2:                      # The chunk with the smallest standard deviation wins.
+    calibration['R'] = ratio1/ratio2
+    print " {0} : First segment 1: {1}  Second segment {2} ".format(calibration['R'],ratio1,ratio2)
+
+    if ratio1>ratio2:                      # The chunk with the smallest standard deviation wins.
         sensor3 = sensor1
         laser3 = laser1
+        print "First segment is being used\n\n"
     else:
         sensor3 = sensor2
         laser3 = laser2
+        print "Second segment is being used\n\n"
+
                          # Apply the ADC constants to the sensor channel data to convert to units of volts
     sensor3 = sensor_adccal*np.array(sensor3)
                          # Apply an FFT to the sensor data
@@ -686,6 +704,7 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
     idx = np.where(abs(senfft)==max(np.abs(senfft)))[0][-1]
     Frequency = abs(freq[idx])
     calibration['frequency']=Frequency # redundant, I know, but this code is retrofitted in a hurry
+    print "For frequency {}".format(Frequency)
    
                                       #
                                       # Take the sample with the largest amplitude as our center frequency. 
@@ -808,6 +827,7 @@ def sigcal(calcon,files):
         rn = []
         h = []
         gm_correct = []
+        quality = []
 
 
         (sensorfiles,laserfiles) = sacparse(files,calcon['s_chname'],calcon['l_chname'])# returns a two item list of matched file names for the channel pair
@@ -845,6 +865,7 @@ def sigcal(calcon,files):
             rn.append(calibration['freeperiod'])
             h.append(calibration['h'])
             gm_correct.append(calibration['gmcorrect'])
+            quality.append(calibration['R'])
             infile_sensor.append(sensorfiles[n])
             infile_laser.append(laserfiles[n])
             
@@ -858,6 +879,7 @@ def sigcal(calcon,files):
         rn = []
         h = []
         gm_correct = []
+        quality = []
         senchan = cconstant[1]  #  cal_constants[((cal_constants[13]*2)+1)] # This points at the name of the sensor channel
         lsrchan = cconstant[3]  #  cal_constants[((cal_constants[14]*2)+1)] 
 	# Remember that the file name references the wfd containing the file names and they all get loaded at once.
@@ -904,6 +926,7 @@ def sigcal(calcon,files):
                calnum.append(cal)
                rn.append(resonance)
                h.append(damprat)
+               quality.append(calibration['R'])
                gm_correct.append(gm_c)
                filenames.append(filelist[i])
 
@@ -952,7 +975,7 @@ def sigcal(calcon,files):
                 if calnum[n]<>0.00:
                     outrow = csv.writer(csvfile, delimiter = ",",
                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                    outrow.writerow([frequency[n],calnum[n],infile_sensor[n],infile_laser[n]])
+                    outrow.writerow([frequency[n],calnum[n],quality[n],infile_sensor[n],infile_laser[n]])
                 else:
                     print "    entry {} Hz ignored due to bad amplitude or frequency calculation.".format(frequency[n])
          
@@ -1439,10 +1462,15 @@ def grid_search(outfile,nsearch,lmult,hmult,target_dir):                 # Subro
     # print "okay here is channel --> {}".format(channel)
     freq_msu = []                         # Initialize the frequency array
     amp_msu = []                          # Initialize the matching amplitude array
+    quality = []
 
     for i in range(0,len(fdata[1])):      #        Build the list of frequencies and sensitivities from the file.
-        freq_msu.append(float(fdata[1][i][0]))     # Field 0 is the frequency
-        amp_msu.append(float(fdata[1][i][1]))      # Field 1 is the average sensitivity
+        if (100*abs(1-float(fdata[1][i][2]))) < 2.0:       # field 2 is the quality metric of the datapoint
+            freq_msu.append(float(fdata[1][i][0]))     # Field 0 is the frequency
+            amp_msu.append(float(fdata[1][i][1]))      # Field 1 is the average sensitivity     
+        else:
+            print "Frequency point {0} with amplitude {1} not plotted because of quality {2}." \
+                  .format(fdata[1][i][0],fdata[1][i][1],fdata[1][i][2])
 
                                           #    plot_curve(Station,Frequencies,Sensitivities,Freeperiod,h)
                                           #    plot_curve2(Station,Frequencies,Calint,Calderiv,Freeperiod,h)
