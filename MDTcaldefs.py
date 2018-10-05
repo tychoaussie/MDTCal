@@ -1,8 +1,20 @@
 #!/usr/bin/env python
 
 __author__ = "Daniel Burk <burkdani@msu.edu>"
-__version__ = "20160506"
+__version__ = "20170320"
 __license__ = "MIT"
+
+# 20170320 - Ignore secondary impulses when calculating damping ratio as they are not as accurate as primary pulse
+
+# Code is hacked to use the whole file on the FFT
+# Also I am trying to gifure out how to ignore folder names that also contain the channel name
+# That is a pretty major bug.
+
+# Program still isn't choosing the best piece of stationary data.
+# I have broken the file into three separate pieces but it's still
+# not finding the smoothest, most stationary chunk.
+# I need to find the most stable part of the waveform for calculating
+# the FFT.
 
 # Ran into a problem with KUR data having bad sections that made it through the "chunk" selection
 # process, so I am trying a better chunk size selection process. Also including a "quality"
@@ -50,6 +62,7 @@ import scipy as sp
 import string,subprocess
 import difflib as diff
 import string
+#import statsmodels.tsa.stattools as ts
 
 from Tkinter import *
 import tkSimpleDialog
@@ -130,12 +143,17 @@ def dataload(infile,target_channel,ftype):
 
     if string.lower(ftype) !='css':
         st = read(infile) # opens the non-css stream
+        print "{} channels found within this stream.".format(len(st))
         for i in range(len(st)):
-#            print "'{0}' = '{1}' ? ".format(string.lower(target_channel)[0:3],string.lower(st[i].stats.channel)[0:3])
+            print "'{0}' = '{1}' ? ".format(string.lower(target_channel)[0:3],string.lower(st[i].stats.channel)[0:3])
             if string.lower(target_channel)[0:3] == string.lower(st[i].stats.channel)[0:3]:
                 output = st[i].data
                 delta = st[i].stats.delta
                 status = True
+            else:
+                output = st[i].data
+                delta = st[i].stats.delta
+                status = False
  #               print " output set to {}".format(st[i].stats.channel)
     else:                     # oops, its a css file
         st = read(infile, format = "css") # unlike the sac & mseed, this points to a .wfd file full of pointers.
@@ -351,7 +369,7 @@ def dampingratio(root_window,calcon):
 #            print "Nothing entered. Setting the default to one pulse."
 #            keyboard = "1"
 #        impnum = int(keyboard)
-        impnum = tkSimpleDialog.askinteger('Damping Ratio Measurements', 'How many impulses are measured?',maxvalue=6,parent=root_window)
+        impnum = tkSimpleDialog.askinteger('Damping Ratio Measurements', 'How many impulses are measured?',maxvalue=12,parent=root_window)
         if impnum == 0:
             impnum = 1
 
@@ -404,7 +422,7 @@ def dampingratio(root_window,calcon):
            
             zero_crossings = np.where(np.diff(np.sign(sgfilt)))[0]
   
-            for n in range(0,len(zero_crossings)):
+            for n in range(0,len(zero_crossings)): # Use only the first two zero crossings
                Z.append(sense[zero_crossings[n]]-offset)
 
                if (n<>0) and (n<4):
@@ -413,7 +431,7 @@ def dampingratio(root_window,calcon):
                    # Z represents the actual peak sample where the derivative went to zero 
                    # and is offset corrected
 
-            for n in range(0,len(Z)-1):
+            for n in range(0,len(Z)-1): # use only the first two impulses
                 zz = np.abs(Z[n])       # zz is the absolute value of the signal datapoint
                 ZZ.append(zz)           # ZZ is the list of absolute values from Z
                                         # Adjust Z for middle tail-end to fix bias problems
@@ -429,8 +447,8 @@ def dampingratio(root_window,calcon):
                         if flag == True:
                             nn +=1
                             # print "ZZ[{0}] reports as {1}".format(n,ZZ[n])
-            if nn>3:
-                nn = 3 # stop counting at 4   
+            if nn>2:
+                nn = 2 # stop counting at 4   
             #
             #   # calculate a list of damping ratios starting with the second local max
             #
@@ -503,12 +521,14 @@ def sacparse(filelist,senchan,lsrchan):
     laserfiles = []
     print "senchan set to: {0} and lsrchan set to: {1} \n File list contains {2} items.".format(senchan,lsrchan,len(filelist))
     for i in range(0,len(filelist)):
-
-        if senchan in filelist[i]:
+#                                      WARNING: If the senchan is located within the folder name you will have problems!
+#                                               To fix, you must strip out the folder names.
+#
+        if senchan in filelist[i][filelist[i].rfind('/')+2:]:
             sensorfiles.append(filelist[i])
-
-        if lsrchan in filelist[i]:
+        if lsrchan in filelist[i][filelist[i].rfind('/')+2:]:
             laserfiles.append(filelist[i])
+
     sensorfiles.sort(key=str.lower)
     laserfiles.sort(key=str.lower)
     print "A total of {} sensor/laser channel sets found.".format(len(laserfiles))
@@ -647,7 +667,7 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
                    'freeperiod':resfreq,        \
                    'h':calcon['damping_ratio'], \
                    'gmcorrect':lcalconst,      \
-                   'R':0.0}
+                   'R':0.0}   # R is the quality metric for the calculation
 
 
                                       #            
@@ -659,48 +679,62 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
     # and use the one with the lowest standard deviation for determining
     # the one for use with the FFT
     
-    sensor = signal.detrend(sensor)
-    laser = signal.detrend(laser)
+    sensor  = signal.detrend(sensor)
+    laser   = signal.detrend(laser)
     sensor1 = []
     sensor2 = []
-    laser1 = []
-    laser2 = []
-   # print "The length of the sensor chunk for this file is {} samples.".format(len(sensor)/2)
-    if len(sensor)<4096:
-        chunk = len(sensor)/2
-    elif len(sensor)>8192:
-        chunk = 4096
-    else:
-        chunk = 2048    
+    sensor3 = []
+    laser1  = []
+    laser2  = []
+    laser3  = []
+    # print "The length of the sensor chunk for this file is {} samples.".format(len(sensor)/2)
+    #if len(sensor)<4096:
+    #    chunk = len(sensor)/2
+    #elif len(sensor)>8192:
+    #    chunk = 4096
+    #else:
+    #    chunk = 2048
 
-    for i in range(0,chunk):
+    chunk = len(sensor)/4    
+
+    for i in range(0,2*chunk):
         sensor1.append(sensor[i]) # take the first n samples
-        sensor2.append(sensor[(len(sensor)-chunk+i)]) # Take the last n samples
+        sensor2.append(sensor[chunk+i])
+        sensor3.append(sensor[2*chunk+i]) # Take the last n samples
         laser1.append(laser[i]) # take the first 4096 samples
-        laser2.append(laser[(len(laser)-chunk+i)]) # take the last 4096 samples
+        laser2.append(laser[chunk+i])
+        laser3.append(laser[2*chunk+i]) # take the last 4096 samples
     
-    ratio1 = np.std(sensor1)*np.std(laser1)
-    ratio2 = np.std(sensor2)*np.std(laser2)
-    calibration['R'] = ratio1/ratio2
-    print " {0} : First segment 1: {1}  Second segment {2} ".format(calibration['R'],ratio1,ratio2)
+    ratio1 = np.std(sensor1)*np.std(laser1) #ts.adfuller(sensor1,1)# 
+    ratio2 = np.std(sensor2)*np.std(laser2) #ts.adfuller(sensor2,1)# 
+    ratio3 = np.std(sensor3)*np.std(laser3) #ts.adfuller(sensor3,1)# 
+    calibration['R'] = ratio1/ratio3
+    print "segment 1: {0:1.3e} segment2: {1:1.3e} Segment 3: {2:1.3e} ".format(ratio1,ratio2,ratio3)
+    print "S1/S2: {0:2.2f}, S1/S3: {1:2.2f}, S2/S3: {2:2.2f} ".format(ratio1/ratio2,ratio1/ratio3,ratio2/ratio3)
 
-    if ratio1>ratio2:                      # The chunk with the smallest standard deviation wins.
-        sensor3 = sensor1
-        laser3 = laser1
+    if ((ratio1<ratio2) and (ratio1 < ratio3)):  # The chunk with the smallest standard deviation wins.
+        sensor4 = sensor1
+        laser4 = laser1
         print "First segment is being used\n\n"
-    else:
-        sensor3 = sensor2
-        laser3 = laser2
+    elif ((ratio2 < ratio1) and (ratio2 < ratio3)):
+        sensor4 = sensor2
+        laser4 = laser2
         print "Second segment is being used\n\n"
+    else:                                        # ((ratio3 > ratio1) and (ratio3 > ratio2)):
+        sensor4 = sensor3
+        laser4 = laser3
+        print "third segment is being used\n\n"
 
-                         # Apply the ADC constants to the sensor channel data to convert to units of volts
-    sensor3 = sensor_adccal*np.array(sensor3)
+    sensor4 = sensor   # Just a temporary thing for sanity checking
+    laser4 = laser    
+                     # Apply the ADC constants to the sensor channel data to convert to units of volts
+    sensor4 = sensor_adccal*np.array(sensor4)
                          # Apply an FFT to the sensor data
                          # Generate a frequency table
                          # Find the index point where rms energy is highest
                          # Return the frequency in Hz.
-    senfft   = np.fft.fft(sensor3)
-    freq = np.fft.fftfreq(len(sensor3),delta) # Length of the sample set and delta is the samplerate
+    senfft   = np.fft.fft(sensor4) # ,n=4096)
+    freq = np.fft.fftfreq(len(sensor4),delta) # Length of the sample set and delta is the samplerate
     idx = np.where(abs(senfft)==max(np.abs(senfft)))[0][-1]
     Frequency = abs(freq[idx])
     calibration['frequency']=Frequency # redundant, I know, but this code is retrofitted in a hurry
@@ -728,11 +762,11 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
                                       # laser_adccal is the ADC in uV/count
                                       # lasercal = unit-corrected resolution of laser
 
-    gmotion = laser_adccal*lasercal*lcalconst/gmcorrect*np.array(laser3)
+    gmotion = laser_adccal*lasercal*lcalconst/gmcorrect*np.array(laser4)
 
                                       # Calculate the FFT for the ground motion signal
-    lasfft   = np.fft.fft(gmotion)    # 
-    freqlaser = np.fft.fftfreq(len(laser3),delta) # number of samples and delta is the sample rate
+    lasfft   = np.fft.fft(gmotion) # ,n=4096)    # 
+    freqlaser = np.fft.fftfreq(len(laser4),delta) # number of samples and delta is the sample rate
                                       #
                                       # Take the rms value of each signal at the main frequency only
                                       #
@@ -834,6 +868,7 @@ def sigcal(calcon,files):
                                  # create a list of matched channel files for each frequency
 
         for n in range(0,len(sensorfiles)):
+            print "Item list n = {0} whereas length of sensorfiles = {1} and laserfiles = {2}".format(n,len(sensorfiles),len(laserfiles))
             print "{0}, {1}, {2} \n ".format(sensorfiles[n],calcon['s_chname'],calcon['file_type'])
             print "{0}, {1}, {2} \n ".format(laserfiles[n],calcon['l_chname'],calcon['file_type'])
             sensordata,delta,status = dataload(sensorfiles[n],calcon['s_chname'],calcon['file_type'])
@@ -923,10 +958,10 @@ def sigcal(calcon,files):
                frequency.append(freq)
                sensor.append(senrms)
                laser.append(lasrms)
-               calnum.append(cal)
+               calnum.append(cal)     # This is the sensitivity in V/(m/sec)
                rn.append(resonance)
                h.append(damprat)
-               quality.append(calibration['R'])
+               quality.append(calibration['R']) # This is a quality metric
                gm_correct.append(gm_c)
                filenames.append(filelist[i])
 
@@ -1465,12 +1500,12 @@ def grid_search(outfile,nsearch,lmult,hmult,target_dir):                 # Subro
     quality = []
 
     for i in range(0,len(fdata[1])):      #        Build the list of frequencies and sensitivities from the file.
-        if (100*abs(1-float(fdata[1][i][2]))) < 2.0:       # field 2 is the quality metric of the datapoint
-            freq_msu.append(float(fdata[1][i][0]))     # Field 0 is the frequency
-            amp_msu.append(float(fdata[1][i][1]))      # Field 1 is the average sensitivity     
-        else:
-            print "Frequency point {0} with amplitude {1} not plotted because of quality {2}." \
-                  .format(fdata[1][i][0],fdata[1][i][1],fdata[1][i][2])
+   #     if (100*abs(1-float(fdata[1][i][2]))) < 2.0:       # field 2 is the quality metric of the datapoint
+        freq_msu.append(float(fdata[1][i][0]))     # Field 0 is the frequency
+        amp_msu.append(float(fdata[1][i][1]))      # Field 1 is the average sensitivity     
+   #     else:
+   #         print "Frequency point {0} with amplitude {1} not plotted because of quality {2}." \
+   #               .format(fdata[1][i][0],fdata[1][i][1],fdata[1][i][2])
 
                                           #    plot_curve(Station,Frequencies,Sensitivities,Freeperiod,h)
                                           #    plot_curve2(Station,Frequencies,Calint,Calderiv,Freeperiod,h)
