@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
-# Version 20160428b - Ken Abrams & Daniel Burk
+# Version 20181210 - Ken Abrams & Daniel Burk
 #
+# 20181210  - Add defaults csv file for adjusting the defaults
 # 20160428b - Make calcon load def , add calcon print debugs
 # 20160424  - Fix file update when viewing/calcuculating fp/damping, combine veiwperiod/damping to viewsample def
 # 20160421  - Set the default directory as the initial target when opening sigcal process dialog
 
 
 from Tkinter import *
-import sys
+import sys,csv
 import MDTcaldefs
 import tkMessageBox, tkFileDialog
 import string
@@ -68,9 +69,9 @@ def LoadCalCon(calcon_in):
 
 def BrowsePeriodFile(root_window,FileNameVar,DirNameVar):
     myFormats = [
+    ('MiniSEED File','*.mseed'),
     ('SAC File','*.sac'),
     ('CSS File','*.wfd'),
-    ('Mini SEED File','*.mseed,*.msd,*.ms'),
     ('All Files','*')
     ]
 #   get default directory off of screen 
@@ -96,9 +97,9 @@ def CalcFreePeriod (calcon_in,free_file_in,free_period_in):
 
 def BrowseDampingFile(root_window,FileNameVar,DirNameVar):
     myFormats = [
+    ('MiniSEED File','*.mseed'),
     ('SAC File','*.sac'),
     ('CSS File','*.wfd'),
-    ('Mini SEED File','*.mseed'),
     ('All Files','*')
     ]
 #   get default directory off of screen    
@@ -134,9 +135,9 @@ def CallSigCal(root_window,calcon_in):
     selectedType=DataFormat.get()
 
     myFormats = [
+    ('Miniseed files','*.mseed'),
     ('SAC files','*.sac'),
     ('CSS files','*.wfd'),
-    ('Miniseed files','*.mseed,*.msd,*.ms'),
     ('All files','*.*')
     ]
 
@@ -156,29 +157,75 @@ def CallSigCal(root_window,calcon_in):
     print calcon_in  
 # call sigcal with list    
     MDTcaldefs.sigcal(calcon_in,files)
-            
+
+# Load the calcon dictionary
+def calcon_read():
+    try:
+        infile = "C:\\pyscripts\\calcon.csv"
+        with open(infile,'r') as fin:
+            list = csv.reader(fin)
+            calcon = {}
+            for row in list:
+                if row:
+#                    print "row is created where '{0}':{1}".format(row[0],row[1])
+                    calcon[row[0]] = row[1]
+        return(calcon)
+    except:
+        print 'Error reading defaults file.'
+        calcon = {'s_chname':'',\
+              's_chsen':0.9455,\
+              'l_chname':'LZR',\
+              'l_chsen':0.9455,\
+              'l_sen':1.00,\
+              'l_calconst':0.579,\
+              'target_dir':'c:\\Calibration\\',\
+              'damping_ratio':0.707, \
+              'damping_ratio_source':"", \
+              'free_period':0.880,\
+              'free_period_source':"", \
+              'file_type':"mseed",\
+              'station':'MSU',\
+              'network':'LM' }
+        return(calcon)
+
+def calcon_write(calcon):              # Take mmost recent values and place them into the defaults.
+
+    calcon['station']                = StationName.get()
+    calcon['network']                = StationNetwork.get()
+    calcon['s_chname']               = SensorName.get()
+    calcon['s_chsen']                = float(SensorSen.get())
+    calcon['l_chname']               = LaserName.get()
+    calcon['l_chsen']                = float(LaserSen.get())
+    calcon['l_sen']                  = float(LaserReso.get())
+    calcon['l_calconst']             = float(LaserCal.get())
+    calcon['target_dir']             = str(DefaultDir.get())
+    calcon['damping_ratio']          = float(DampingValue.get())
+    calcon['damping_ratio_source']   = str(DampingFile.get())
+    calcon['free_period']            = float(FreeValue.get())
+    calcon['free_period_source']     = str(FreeFile.get())
+    calcon['file_type']              = DataFormat.get()
+
+    try:
+        outfile = "C:\\pyscripts\\calcon.csv"
+        with open(outfile, mode='w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            for key in dict.keys(calcon):
+                field = []
+                field.append(key)
+                field.append(calcon[key])
+                writer.writerow(field)
+    except:
+        print "Unable to write calcon values to the destination file."
 
 def main():
 #   setup main data structure
-    calcon = {'s_chname':'',\
-          's_chsen':0.9455,\
-          'l_chname':'LZR',\
-          'l_chsen':0.9455,\
-          'l_sen':1.00,\
-          'l_calconst':0.579,\
-          'target_dir':'c:\\Calibration\\',\
-          'damping_ratio':0.707, \
-          'damping_ratio_source':"", \
-          'free_period':0.880,\
-          'free_period_source':"", \
-          'file_type':"sac",\
-          'station':'MSU',\
-          'network':'LM' }
+    calcon = calcon_read()
+
     
 # Setup GUI window
     global root
     root = Tk()
-    root.title(string='MDT Seismic Sensor Calibration - v20160428b')
+    root.title(string='MDT Seismic Sensor Calibration - v20181210')
 #root.geometry('200x210+350+70')
 
 
@@ -300,11 +347,16 @@ def main():
     Label(root, text="  SELECT DATA FORMAT").grid(row=19, column=0,pady=5,sticky=W)
     global DataFormat
     DataFormat = StringVar()
-    DataFormat.set("SAC")
+    DataFormat.set("MSEED")
     Radiobutton(root, text="CSS", variable=DataFormat, value='CSS').grid(row=20,column=1,sticky=W)
     Radiobutton(root, text="SAC", variable=DataFormat, value='SAC').grid(row=21,column=1,sticky=W)
     Radiobutton(root, text="MSEED", variable=DataFormat, value='MSEED').grid(row=22,column=1,sticky=W)
     Label(root, text="  ").grid(row=23,column=0)
+
+
+#SigCal Save Defaults Button Setup
+    SaveDefsButton = Button(root,text=' SAVE defaults',command=lambda: calcon_write(calcon)).grid(row=24,column=2)
+#SaveDefsButton.config(state=NORMAL)
 
 #SigCal Process Button Setup
     SigCalButton = Button(root,text=' PROCESS SIGCAL',command=lambda: CallSigCal(root,calcon)).grid(row=24,column=1,pady=7)

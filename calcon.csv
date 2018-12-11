@@ -1,0 +1,14 @@
+s_chsen,0.9455
+l_sen,1.0
+l_chname,LASER
+network,LM
+s_chname,BHZ
+file_type,MSEED
+target_dir,C:/Calibration
+l_chsen,0.9455
+free_period,0.88
+damping_ratio_source, 
+damping_ratio,0.707
+l_calconst,0.579
+station,MSU
+free_period_source, 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 __author__ = "Daniel Burk <burkdani@msu.edu>"
-__version__ = "20170320"
+__version__ = "20181210"
 __license__ = "MIT"
 
+# 20181210 - Make the miniseed format the default. Set up cal constant to 1.0, and program in a defaults file.
+#          - That way customer can adjust their own defaults. Defaults are written to file upon file close.
 # 20170320 - Ignore secondary impulses when calculating damping ratio as they are not as accurate as primary pulse
 
 # Code is hacked to use the whole file on the FFT
@@ -99,6 +101,7 @@ import tkSimpleDialog
 # calcon['file_type'] = type of files used in the calibration.
 # calcon['station'] = Station designator
 # calcon['network'] = Network designator
+# calcon['ftype'] = Default file type to open
 
 #                  Options are:
 #                              sac
