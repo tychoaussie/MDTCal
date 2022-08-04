@@ -1,17 +1,17 @@
 #!/usr/bin/python
 
-# Version 20181210 - Ken Abrams & Daniel Burk
-#
+# Version 20220804 - Ken Abrams & Daniel Burk
+# 20220804   -  Update print statements to functions for python v3.9
 # 20181210  - Add defaults csv file for adjusting the defaults
 # 20160428b - Make calcon load def , add calcon print debugs
 # 20160424  - Fix file update when viewing/calcuculating fp/damping, combine veiwperiod/damping to viewsample def
 # 20160421  - Set the default directory as the initial target when opening sigcal process dialog
 
 
-from Tkinter import *
+from tkinter import *
 import sys,csv
 import MDTcaldefs
-import tkMessageBox, tkFileDialog
+import tkinter.messagebox, tkinter.filedialog
 import string
 import subprocess
 
@@ -40,12 +40,12 @@ import subprocess
 # OF SUCH DAMAGES.
  
 def BrowseDefaultDir(root_window,calcon_in,DirNameVar,):
-    startdir = string.rstrip(calcon_in['target_dir'])
-    startdir = string.rstrip(startdir,"\\") #          Strip off the backslash
-    DirName=tkFileDialog.askdirectory(parent=root_window,initialdir=startdir, \
+    startdir = calcon_in['target_dir'].rstrip("\\")
+    startdir = startdir.rstrip("\\") #          Strip off the backslash
+    DirName=tkinter.filedialog.askdirectory(parent=root_window,initialdir=startdir, \
         title = 'Select Default Directory')
-#    endloc=string.rfind(DirName,'/')+1   # 
-    DirName = string.replace(DirName, "/", "\\")
+
+    DirName = DirName.replace( "/", "\\")
     DirNameVar.set(DirName)
     calcon_in['target_dir'] = DirName+"\\"            # Restore the backslash	
 
@@ -77,17 +77,17 @@ def BrowsePeriodFile(root_window,FileNameVar,DirNameVar):
 #   get default directory off of screen 
     defaultdir = DirNameVar.get()
 #   browse for data file using default directory    
-    FileName=tkFileDialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
+    FileName=tkinter.filedialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
         title = 'Select Free Period File')
-    print '\nFree Period File Selected: {}'.format(FileName)
-    FileNameVar.set(string.replace(FileName, "/", "\\"))
+    print ('\nFree Period File Selected: {}'.format(FileName))
+    FileNameVar.set(FileName.replace("/", "\\"))
 
 def CalcFreePeriod (calcon_in,free_file_in,free_period_in):
 #   make sure CalCon is loaded    
     LoadCalCon(calcon_in)
 #   show CalCon structure contents before calculation for troubleshooting
-    print '*** Start Calc Free Period ***'
-    print calcon_in
+    print ('*** Start Calc Free Period ***')
+    print (calcon_in)
 #   call freeperiod calc with root tkninter window & CalCon structure     
     freeval = MDTcaldefs.freeperiod(root,calcon_in)
 #   update the CalCon with calculated value
@@ -105,17 +105,17 @@ def BrowseDampingFile(root_window,FileNameVar,DirNameVar):
 #   get default directory off of screen    
     defaultdir = DirNameVar.get() 
 #   browse for data file using default directory   
-    FileName=tkFileDialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
+    FileName=tkinter.filedialog.askopenfilename(parent=root_window,filetypes=myFormats,initialdir=defaultdir, \
         title = 'Select Damping File')
-    print 'Damping File Selected: {}'.format(FileName)
-    FileNameVar.set(string.replace(FileName, "/", "\\"))
+    print ('Damping File Selected: {}'.format(FileName))
+    FileNameVar.set(FileName.replace( "/", "\\"))
     
 def CalcDampingRatio (calcon_in,damping_file_in,damping_ratio_in):
 #   make sure CalCon is loaded    
     LoadCalCon(calcon_in)
 #   show CalCon structure contents before calculation for troubleshooting
-    print '\n*** Start Calc Damping Ratio ***'
-    print calcon_in
+    print ('\n*** Start Calc Damping Ratio ***')
+    print (calcon_in)
 #   call dampingratio calc with root tkninter window & CalCon structure 
     damping = MDTcaldefs.dampingratio(root,calcon_in)
 #   load calculated damping back into CalCon
@@ -141,20 +141,20 @@ def CallSigCal(root_window,calcon_in):
     ('All files','*.*')
     ]
 
-    filez = tkFileDialog.askopenfilenames(parent=root_window,title='Use <shift> or <CTRL> to select the data files to include for processing:', \
+    filez = tkinter.filedialog.askopenfilenames(parent=root_window,title='Use <shift> or <CTRL> to select the data files to include for processing:', \
             initialdir=calcon_in['target_dir'], \
             filetypes=myFormats)
 
 # convert from unicode to str file list
     files = []
     for file in filez:
-        files.append(string.replace(str(file), "/", "\\"))
+        files.append(str(file).replace( "/", "\\"))
   
 #   make sure CalCon is loaded    
     LoadCalCon(calcon_in)
 #   show CalCon structure contents before calculation for troubleshooting
-    print '\n*** Start Signal Calibration ***'
-    print calcon_in  
+    print ('\n*** Start Signal Calibration ***')
+    print (calcon_in ) 
 # call sigcal with list    
     MDTcaldefs.sigcal(calcon_in,files)
 
@@ -167,11 +167,11 @@ def calcon_read():
             calcon = {}
             for row in list:
                 if row:
-#                    print "row is created where '{0}':{1}".format(row[0],row[1])
+#                    print ("row is created where '{0}':{1}".format(row[0],row[1]))
                     calcon[row[0]] = row[1]
         return(calcon)
     except:
-        print 'Error reading defaults file.'
+        print ('Error reading defaults file.')
         calcon = {'s_chname':'',\
               's_chsen':0.9455,\
               'l_chname':'LZR',\
@@ -215,7 +215,7 @@ def calcon_write(calcon):              # Take mmost recent values and place them
                 field.append(calcon[key])
                 writer.writerow(field)
     except:
-        print "Unable to write calcon values to the destination file."
+        print ("Unable to write calcon values to the destination file.")
 
 def main():
 #   setup main data structure
@@ -225,7 +225,7 @@ def main():
 # Setup GUI window
     global root
     root = Tk()
-    root.title(string='MDT Seismic Sensor Calibration - v20181210')
+    root.title(string='MDT Seismic Sensor Calibration - v20220804')
 #root.geometry('200x210+350+70')
 
 
@@ -369,7 +369,7 @@ def main():
 # Preload calcontrol file if exists
 #SigCalButton.config(state=DISABLED)
 
-  #  xxx = tkFileDialog.askopenfilename(parent=root,initialdir=calcon['target_dir'])
+  #  xxx = tkinter.filedialog.askopenfilename(parent=root,initialdir=calcon['target_dir'])
 
     root.mainloop()
 

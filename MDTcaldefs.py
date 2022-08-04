@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 __author__ = "Daniel Burk <burkdani@msu.edu>"
-__version__ = "20181210"
+__version__ = "20220804"
 __license__ = "MIT"
 
+# 20220804 - update for python 3
 # 20181210 - Make the miniseed format the default. Set up cal constant to 1.0, and program in a defaults file.
 #          - That way customer can adjust their own defaults. Defaults are written to file upon file close.
 # 20170320 - Ignore secondary impulses when calculating damping ratio as they are not as accurate as primary pulse
@@ -66,8 +67,8 @@ import difflib as diff
 import string
 #import statsmodels.tsa.stattools as ts
 
-from Tkinter import *
-import tkSimpleDialog
+from tkinter import *
+import tkinter.simpledialog
 #                                               calcon dictionary example:
 #calcon = {'s_chname':'SHZ',\
 #          's_chsen':0.945,\
@@ -134,22 +135,22 @@ def file_preview(infile):
     return()
 
 def dataload(infile,target_channel,ftype):
-#    print "Attempting to load data file {}".format(infile)
-#    print "Target channel is {}.".format(target_channel)
-#    print "File type is set to {}".format(ftype)
-    fileformat = string.lower(ftype)
-#    print "{} \n".format(fileformat)
+#    print ( "Attempting to load data file {}".format(infile))
+#    print ("Target channel is {}.".format(target_channel))
+#    print ("File type is set to {}".format(ftype))
+    fileformat = ftype.lower()
+#    print ("{} \n".format(fileformat))
     status = False
     delta = 999    # seconds per sample
     target_channel = target_channel[:3]
 
 
-    if string.lower(ftype) !='css':
+    if ftype.lower() !='css':
         st = read(infile) # opens the non-css stream
-        print "{} channels found within this stream.".format(len(st))
+        print ("{} channels found within this stream.".format(len(st)))
         for i in range(len(st)):
-            print "'{0}' = '{1}' ? ".format(string.lower(target_channel)[0:3],string.lower(st[i].stats.channel)[0:3])
-            if string.lower(target_channel)[0:3] == string.lower(st[i].stats.channel)[0:3]:
+            print ("'{0}' = '{1}' ? ".format(target_channel.lower()[0:3],st[i].stats.channel.lower()[0:3]))
+            if (target_channel).lower()[0:3] == (st[i].stats.channel).lower()[0:3]:
                 output = st[i].data
                 delta = st[i].stats.delta
                 status = True
@@ -157,11 +158,11 @@ def dataload(infile,target_channel,ftype):
                 output = st[i].data
                 delta = st[i].stats.delta
                 status = False
- #               print " output set to {}".format(st[i].stats.channel)
+ #               print (" output set to {}".format(st[i].stats.channel))
     else:                     # oops, its a css file
         st = read(infile, format = "css") # unlike the sac & mseed, this points to a .wfd file full of pointers.
         for i in range(len(st)):   
-            if string.lower(target_channel) == string.lower(st[i].stats.channel):
+            if (target_channel.lower()) == (st[i].stats.channel.lower()):
                 output = st[i].data
                 delta = st[i].stats.delta
                 status = True 
@@ -279,13 +280,13 @@ def freeperiod(root_window,calcon):
         plt.close()
 
     except:
-        print "Exception: Error in processing channel {0} in fileset {1}.".format(target_channel,infile)
-        print "for one of the following reasons:\n\n"
-        print " - Selected sample number isn't within the resonance waveform.\n"
-        print " - Selected sample number is too close (within 2048 samples) of the end of file.\n"
-        print " - The designated channel was not found within the designated file."
-        print " - The designated file was not found.\n\n"
-        print " Free period has been set to a default of 1.0 Hz. Recheck your file & try again." 
+        print ("Exception: Error in processing channel {0} in fileset {1}.".format(target_channel,infile))
+        print ("for one of the following reasons:\n\n")
+        print (" - Selected sample number isn't within the resonance waveform.\n")
+        print (" - Selected sample number is too close (within 2048 samples) of the end of file.\n")
+        print (" - The designated channel was not found within the designated file.")
+        print (" - The designated file was not found.\n\n")
+        print (" Free period has been set to a default of 1.0 Hz. Recheck your file & try again." )
 
     return(Frequency)
 
@@ -312,20 +313,20 @@ def firfilt(interval, freq, sampling_rate):  # Interval is the array upon which 
 #
 
 def dampingratio(root_window,calcon):
-#    print calcon['s_chname']                # = sensor channel name
-#    print calcon['s_chsen']                 #= sensor #sensitivity in uv/count
-#    print calcon['l_chname']                # = laser position sensor channel name
-#    print calcon['l_chsen']                 #- laser position sensor channel sensitivity in uv/count
-#    print calcon['l_sen']                   #= laser position sensor sensitivity in V/mm
-    print calcon['l_calconst']              #= geometry correction ratio between center of mass & laser target
-    print calcon['target_dir']              #= target directory for storage of output files
-    print calcon['damping_ratio']           #= calculated damping ratio
-    print calcon['damping_ratio_source']    #= source file for damping ratio calculation
-    print calcon['free_period']             #= calculated free period in Hz
-    print calcon['free_period_source']      #= source file for free period calculation
-    print calcon['file_type']               #= type of files used in the calibration.
-    print calcon['station']                 #= Station designator
-    print calcon['network']
+#    print (calcon['s_chname'])                # = sensor channel name
+#    print (calcon['s_chsen'])                 #= sensor #sensitivity in uv/count
+#    print (calcon['l_chname'])                # = laser position sensor channel name
+#    print (calcon['l_chsen'])                 #- laser position sensor channel sensitivity in uv/count
+#    print (calcon['l_sen'])                   #= laser position sensor sensitivity in V/mm
+    print (calcon['l_calconst'])              #= geometry correction ratio between center of mass & laser target
+    print (calcon['target_dir'])              #= target directory for storage of output files
+    print (calcon['damping_ratio'])           #= calculated damping ratio
+    print (calcon['damping_ratio_source'])    #= source file for damping ratio calculation
+    print (calcon['free_period'])             #= calculated free period in Hz
+    print (calcon['free_period_source'])      #= source file for free period calculation
+    print (calcon['file_type'])               #= type of files used in the calibration.
+    print (calcon['station'])                 #= Station designator
+    print (calcon['network'])
 
     damping_ratio = 0.707
     try:
@@ -339,20 +340,20 @@ def dampingratio(root_window,calcon):
         filetype = calcon['file_type']          # data file type
         sensor,delta,status = dataload(infile,target_channel,filetype)
 
-        print 'This will assist you in the measurement of the damping ratio.\n'
-        print ' Your selected file should represent several damping ratio impulses.' 
-        print ' The following screens will plot the waveform within'
-        print ' the file. \n'
-        print ' For each impulse, measure the sample number representing:\n'
-        print ' - Sample number for the downslope of the first impulse'
-        print ' - Sample number representing the end of the level part'
-        print ' of the wave where signal settled to zero.\n'
-        print ' The sample number is found as "x" in the lower left corner of screen.\n\n'
-        print ' The program will enable you to enter these sample numbers '
-        print ' for as many impulses as you have within the file.\n\n'
-        print ' The program will calculate the damping ratios as the '
-        print ' average of Z1 to Z2, and Z2 to Z3, then make an average' 
-        print ' damping ratio from the impulses. \n\n'
+        print ('This will assist you in the measurement of the damping ratio.\n')
+        print (' Your selected file should represent several damping ratio impulses.' )
+        print (' The following screens will plot the waveform within')
+        print (' the file. \n')
+        print (' For each impulse, measure the sample number representing:\n')
+        print (' - Sample number for the downslope of the first impulse')
+        print (' - Sample number representing the end of the level part')
+        print (' of the wave where signal settled to zero.\n')
+        print (' The sample number is found as "x" in the lower left corner of screen.\n\n')
+        print (' The program will enable you to enter these sample numbers ')
+        print (' for as many impulses as you have within the file.\n\n')
+        print (' The program will calculate the damping ratios as the ')
+        print (' average of Z1 to Z2, and Z2 to Z3, then make an average)' )
+        print (' damping ratio from the impulses. \n\n')
 
         sensor = firfilt(sensor,10,1/delta) # apply a 10Hz filter to the data
                #
@@ -369,7 +370,7 @@ def dampingratio(root_window,calcon):
         
 #        keyboard = raw_input('\n\n How many impulses have you measured? ')
 #        if keyboard =="":
-#            print "Nothing entered. Setting the default to one pulse."
+#            print ("Nothing entered. Setting the default to one pulse.")
 #            keyboard = "1"
 #        impnum = int(keyboard)
         impnum = tkSimpleDialog.askinteger('Damping Ratio Measurements', 'How many impulses are measured?',maxvalue=12,parent=root_window)
@@ -383,7 +384,7 @@ def dampingratio(root_window,calcon):
             
 #            keyboard = raw_input('\n Enter the estimated sample number of the beginning of the impulse {}  '.format(i))
 #            if keyboard == "":
-#                print "Nothing entered. Setting default to sample # 1"
+#                print ("Nothing entered. Setting default to sample # 1")
 #                keyboard = 1
 #            first.append(int(keyboard))
              
@@ -394,7 +395,7 @@ def dampingratio(root_window,calcon):
             
 #            keyboard = raw_input('Enter the estimated sample number of the ending of the impulse train {} '.format(i))
 #            if keyboard =="":
-#                print "Nothing entered. Setting default to sample 1024"
+#                print ("Nothing entered. Setting default to sample 1024")
 #                keyboard = "1024"
 #            last.append(int(keyboard))
             
@@ -406,8 +407,8 @@ def dampingratio(root_window,calcon):
                  #
                  # Start looking for the zero crossings
                  #
-        print first
-        print last
+        print (first)
+        print (last)
         nn = 0
         hn = []
         freep = []
@@ -428,7 +429,7 @@ def dampingratio(root_window,calcon):
             for n in range(0,len(zero_crossings)): # Use only the first two zero crossings
                Z.append(sense[zero_crossings[n]]-offset)
 
-               if (n<>0) and (n<4):
+               if (n!=0) and (n<4):
                    dt.append(2*(zero_crossings[n]-zero_crossings[n-1])*delta)
                    # time between the peaks in seconds
                    # Z represents the actual peak sample where the derivative went to zero 
@@ -449,7 +450,7 @@ def dampingratio(root_window,calcon):
                     else:
                         if flag == True:
                             nn +=1
-                            # print "ZZ[{0}] reports as {1}".format(n,ZZ[n])
+                            # print ("ZZ[{0}] reports as {1}".format(n,ZZ[n]))
             if nn>2:
                 nn = 2 # stop counting at 4   
             #
@@ -463,14 +464,14 @@ def dampingratio(root_window,calcon):
                     hh.append(result)
             hn.append(np.mean(hh))
 
-            print '\n Damping ratios for impulse {0} that create a mean of {1:0.3f} are as follows: '.format(i,np.mean(hh))
-            print hh
+            print ('\n Damping ratios for impulse {0} that create a mean of {1:0.3f} are as follows: '.format(i,np.mean(hh)))
+            print (hh)
  
         hm = np.median(hn) # hn is the list of the median damping ratios from the impulses.
         ha = np.mean(hn) # hz is the list of mean damping ratios from the impulses
 
-        print '\n\n The median damping ratio for your {0} impulses = {1:0.3f} . '.format(impnum,hm)
-        print '\n The mean damping ratio for your {0} impulses = {1:0.3f} . '.format(impnum,ha)
+        print ('\n\n The median damping ratio for your {0} impulses = {1:0.3f} . '.format(impnum,hm))
+        print ('\n The mean damping ratio for your {0} impulses = {1:0.3f} . '.format(impnum,ha))
                                       #
                                       # Check the target directory to see if it exists.
                                       #
@@ -493,9 +494,9 @@ def dampingratio(root_window,calcon):
         plt.show()
         plt.close()
     except:
-        print "Exception: Error in processing channel {0} in fileset {1}.".format(target_channel,infile)
-        print "Something didnt work."
-        print "mean damping ratio set to default of 0.707! Calibration will not be accurate."
+        print ("Exception: Error in processing channel {0} in fileset {1}.".format(target_channel,infile))
+        print ("Something didnt work.")
+        print ("mean damping ratio set to default of 0.707! Calibration will not be accurate.")
         ha = 0.707
 
     mean_damping_ratio=ha           # Just for the sake of clarity
@@ -522,7 +523,7 @@ def dampingratio(root_window,calcon):
 def sacparse(filelist,senchan,lsrchan):
     sensorfiles = []
     laserfiles = []
-    print "senchan set to: {0} and lsrchan set to: {1} \n File list contains {2} items.".format(senchan,lsrchan,len(filelist))
+    print ("senchan set to: {0} and lsrchan set to: {1} \n File list contains {2} items.".format(senchan,lsrchan,len(filelist)))
     for i in range(0,len(filelist)):
 #                                      WARNING: If the senchan is located within the folder name you will have problems!
 #                                               To fix, you must strip out the folder names.
@@ -534,12 +535,12 @@ def sacparse(filelist,senchan,lsrchan):
 
     sensorfiles.sort(key=str.lower)
     laserfiles.sort(key=str.lower)
-    print "A total of {} sensor/laser channel sets found.".format(len(laserfiles))
+    print ("A total of {} sensor/laser channel sets found.".format(len(laserfiles)))
     if len(sensorfiles)!=len(laserfiles):
-        print "Warning!! Sensor length {0} vs laser length {1} \n channel set mismatch! Calibration may be invalid." \
-              .format(len(sensorfiles),len(laserfiles))
-        print " Ensure that when you designate input files, that there is a laser position sensor channel file for"
-        print " every channel sensor file. They must match!"
+        print ("Warning!! Sensor length {0} vs laser length {1} \n channel set mismatch! Calibration may be invalid." \
+              .format(len(sensorfiles),len(laserfiles)))
+        print (" Ensure that when you designate input files, that there is a laser position sensor channel file for")
+        print (" every channel sensor file. They must match!")
 #        sys.exit()
     return(sensorfiles,laserfiles)
 
@@ -549,24 +550,7 @@ def sacparse(filelist,senchan,lsrchan):
                                    # Bring in two file names, compare, load the stream and
                                    # output the stream data and sample period (in seconds)
                                    #
-#def sacload(sensorfile,laserfile,senchan,lsrchan):
-                                   # input parameters: infile[],senchan,lsrchan
-#    result = diff.ndiff(sensorfile,laserfile)    # Result gives us the common letters from the file name
-#    txt = ''.join(result)
-#    common = ""
-#    for i in range(0,int(len(txt))/3):
-#        if (txt[i*3] == " "):
-#            common = common+txt[i*3+2]
-#        if (txt[i*3] == "-") or (txt[i*3] == "+"):  # Add a wild card for any letters that are different
-#            common = common+"*"
-#    st=read(common)                                 # Read all conforming channels that match the channel names
-#    delta = st[0].stats.delta
-#    for i in range(0,len(st)):
-#        if (string.lower(senchan) == string.lower(st[i].stats.channel)):   # If the stream matches sensor or laser channel name
-#            sensor = st[i].data
-#        elif (string.lower(lsrchan) == string.lower(st[i].stats.channel)): # Append it.
-#            laser = st[i].data
-#    return(sensor,laser,delta)
+
 
 
 
@@ -578,7 +562,7 @@ def wfdaudit(cwd,wfdin):  # Audit the css wfd file and repair it if there are mi
     wfdout = cwd+wfdin[:-4]+"_audit.wfd"
     wfdin = cwd+wfdin
     cssbufffile = open(wfdin)
-    print "this is wfdin: '{}'".format(wfdin)
+    print ("this is wfdin: '{}'".format(wfdin))
     cssbuffout = open(wfdout, mode = "w")
     
     #     Okay, we need to fix the wfd by editing it and removing reference to any non-existent files.
@@ -592,14 +576,14 @@ def wfdaudit(cwd,wfdin):  # Audit the css wfd file and repair it if there are mi
             if buff != "":
                 cssbuff.append(buff)        
     except:
-        print "There was a Problem when opening wfd file"
+        print ("There was a Problem when opening wfd file")
 
     buffout = []    
     for i in range(0,len(cssbuff)):
         buffile = cwd+cssbuff[i][150:225].lstrip() # parse out the file names found inside wfd
- #       print "buffile = '{}'".format(buffile)
+ #       print ("buffile = '{}'".format(buffile))
         if os.path.isfile(buffile):
-#           print '"{}" exists.'.format(buffile)
+#           print ('"{}" exists.'.format(buffile))
             cssbuffout.write(cssbuff[i])
     return(wfdout)  # Return the name of the audited wfd file
 
@@ -690,7 +674,7 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
     laser1  = []
     laser2  = []
     laser3  = []
-    # print "The length of the sensor chunk for this file is {} samples.".format(len(sensor)/2)
+    # print ("The length of the sensor chunk for this file is {} samples.".format(len(sensor)/2))
     #if len(sensor)<4096:
     #    chunk = len(sensor)/2
     #elif len(sensor)>8192:
@@ -712,21 +696,21 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
     ratio2 = np.std(sensor2)*np.std(laser2) #ts.adfuller(sensor2,1)# 
     ratio3 = np.std(sensor3)*np.std(laser3) #ts.adfuller(sensor3,1)# 
     calibration['R'] = ratio1/ratio3
-    print "segment 1: {0:1.3e} segment2: {1:1.3e} Segment 3: {2:1.3e} ".format(ratio1,ratio2,ratio3)
-    print "S1/S2: {0:2.2f}, S1/S3: {1:2.2f}, S2/S3: {2:2.2f} ".format(ratio1/ratio2,ratio1/ratio3,ratio2/ratio3)
+    print ("segment 1: {0:1.3e} segment2: {1:1.3e} Segment 3: {2:1.3e} ".format(ratio1,ratio2,ratio3))
+    print ("S1/S2: {0:2.2f}, S1/S3: {1:2.2f}, S2/S3: {2:2.2f} ".format(ratio1/ratio2,ratio1/ratio3,ratio2/ratio3))
 
     if ((ratio1<ratio2) and (ratio1 < ratio3)):  # The chunk with the smallest standard deviation wins.
         sensor4 = sensor1
         laser4 = laser1
-        print "First segment is being used\n\n"
+        print ("First segment is being used\n\n")
     elif ((ratio2 < ratio1) and (ratio2 < ratio3)):
         sensor4 = sensor2
         laser4 = laser2
-        print "Second segment is being used\n\n"
+        print ("Second segment is being used\n\n")
     else:                                        # ((ratio3 > ratio1) and (ratio3 > ratio2)):
         sensor4 = sensor3
         laser4 = laser3
-        print "third segment is being used\n\n"
+        print ("third segment is being used\n\n")
 
     sensor4 = sensor   # Just a temporary thing for sanity checking
     laser4 = laser    
@@ -741,7 +725,7 @@ def process(sensor,laser,delta,calcon):         # cconstant is a list of the cal
     idx = np.where(abs(senfft)==max(np.abs(senfft)))[0][-1]
     Frequency = abs(freq[idx])
     calibration['frequency']=Frequency # redundant, I know, but this code is retrofitted in a hurry
-    print "For frequency {}".format(Frequency)
+    print ("For frequency {}".format(Frequency))
    
                                       #
                                       # Take the sample with the largest amplitude as our center frequency. 
@@ -828,17 +812,17 @@ def sigcal(calcon,files):
 #   filelist = files            # the file list that complies to the file type or station name
 
 
-    filetype = string.lower(calcon['file_type'])            # The type of files to be processed.
+    filetype = (calcon['file_type'].lower())            # The type of files to be processed.
 
 
-#    print " calibration file: '{}'".format(calfile)
-#    print " output file : '{}'".format(outfile)
-#    print " The selected file type is: {} ".format(filetype)
-#    print " The target directory is: {}".format(wdir)    
-#    print " Cal control file: {}\n\n".format(calfile)
-#    print " The length of the file list is {} files.".format(len(filelist))
+#    print (" calibration file: '{}'".format(calfile))
+#    print (" output file : '{}'".format(outfile))
+#    print (" The selected file type is: {} ".format(filetype))
+#    print (" The target directory is: {}".format(wdir) )   
+#    print (" Cal control file: {}\n\n".format(calfile))
+#    print (" The length of the file list is {} files.".format(len(filelist)))
     for i in range(0,len(files)):
-        print " File # {0}: '{1}' ".format(i,files[i])
+        print (" File # {0}: '{1}' ".format(i,files[i]))
 
                                                            #    constant = getconstants(calfile)
 #    cconstant = getcal(calfile)                        # Generate a list of the calibration constants
@@ -871,9 +855,9 @@ def sigcal(calcon,files):
                                  # create a list of matched channel files for each frequency
 
         for n in range(0,len(sensorfiles)):
-            print "Item list n = {0} whereas length of sensorfiles = {1} and laserfiles = {2}".format(n,len(sensorfiles),len(laserfiles))
-            print "{0}, {1}, {2} \n ".format(sensorfiles[n],calcon['s_chname'],calcon['file_type'])
-            print "{0}, {1}, {2} \n ".format(laserfiles[n],calcon['l_chname'],calcon['file_type'])
+            print ("Item list n = {0} whereas length of sensorfiles = {1} and laserfiles = {2}".format(n,len(sensorfiles),len(laserfiles)))
+            print ("{0}, {1}, {2} \n ".format(sensorfiles[n],calcon['s_chname'],calcon['file_type']))
+            print ("{0}, {1}, {2} \n ".format(laserfiles[n],calcon['l_chname'],calcon['file_type']))
             sensordata,delta,status = dataload(sensorfiles[n],calcon['s_chname'],calcon['file_type'])
             laserdata, delta,status = dataload(laserfiles[n], calcon['l_chname'],calcon['file_type'])
 
@@ -938,7 +922,7 @@ def sigcal(calcon,files):
 			# Then, load the streams from that file
             streamlist0 = []
             streamlist1 = []
-            print senchan, lsrchan
+            print (senchan, lsrchan)
             for j in range(0,len(wfd)): #           j is the list number and streamlist is a listing of those numbers
                 if senchan == wfd[j].stats.channel: # that correspond to streams containing that senchan data
                     streamlist0.append(j)
@@ -972,7 +956,7 @@ def sigcal(calcon,files):
 #                                              Write the calibrations to cal output file
 #
 
-    if len(frequency)<>0:
+    if len(frequency)!=0:
         caltime = strftime("%Y_%m_%d %H_%M_%S",gmtime())
 
         outfile  = calcon['target_dir']+caltime+'_caldata_'+calcon['network']+'_'+calcon['station']+ \
@@ -1010,14 +994,14 @@ def sigcal(calcon,files):
             for n in range(len(frequency)):
                 print("Sensitivity calculates to: {0:.3f} V/m/sec at {1:.2f} Hz".format(calnum[n],frequency[n]))
 
-                if calnum[n]<>0.00:
+                if calnum[n]!=0.00:
                     outrow = csv.writer(csvfile, delimiter = ",",
                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
                     outrow.writerow([frequency[n],calnum[n],quality[n],infile_sensor[n],infile_laser[n]])
                 else:
-                    print "    entry {} Hz ignored due to bad amplitude or frequency calculation.".format(frequency[n])
+                    print ("    entry {} Hz ignored due to bad amplitude or frequency calculation.".format(frequency[n]))
          
-            print "\n output sent to {} \n\n".format(outfile)
+            print ("\n output sent to {} \n\n".format(outfile))
 
 
 #
@@ -1032,7 +1016,7 @@ def sigcal(calcon,files):
     
         grid_search(outfile,nsearch,lmult,hmult,calcon['target_dir'])
     else:
-        print "No data files of the appropriate format were found within this directory."
+        print ("No data files of the appropriate format were found within this directory.")
 
 
 
@@ -1071,21 +1055,21 @@ def sigcal(calcon,files):
 def write_sacpz(fname, resp):
 
 # resp is the obspy data structure holding poles, zeros, and scale factor
-    print "SAC poles & zeros result:\n"
+    print ("SAC poles & zeros result:\n")
     with open(fname,'w') as f:
         f.write("ZEROS {}\n".format(len(resp['zeros']) + 1 ))
-        print "ZEROS: {}".format(len(resp['zeros']) + 1 )
+        print ("ZEROS: {}".format(len(resp['zeros']) + 1 ))
         f.write("POLES {}\n".format(len(resp['poles'])))
-        print "POLES {}\n".format(len(resp['poles']))
+        print ("POLES {}\n".format(len(resp['poles'])))
         for pole in resp['poles']:
             f.write("{:e} {:e}\n".format(pole.real, pole.imag))
-            print "real:{:e} Imaginary:{:e}".format(pole.real, pole.imag)
+            print ("real:{:e} Imaginary:{:e}".format(pole.real, pole.imag))
         f.write("CONSTANT {:e}".format(resp['gain']))
-        print "\nsensor gain constant {:2.3f} Volts/(m/sec)".format(resp['gain'])
+        print ("\nsensor gain constant {:2.3f} Volts/(m/sec)".format(resp['gain']))
 
     spz = "SAC pole-zero file is named %s" % ( fname )
     print ( "\n" )
-    print spz
+    print (spz)
 
 
 
@@ -1341,14 +1325,14 @@ msu_damp, amp_average, amp_label, channel, sac_pz_file,target_dir,caltime):
     scale_per = 100. * ( abs ( best_scale - amp_average ) / amp_average )
     rsp = ""
     cdt = "Calibration date = "+ caltime
-    print "{} \n".format(cdt)
+    print( "{} \n".format(cdt))
     tfp = "free period = %.3f Hz (%.2f%% MSU: %.3f)" % ( 1./best_freep, freep_per, 1./msu_freep )
     print ( "\n" )
-    print tfp
+    print (tfp)
     tdr = "damping = %.3f (%.2f%% MSU: %.3f)" % ( best_damp, damp_per, msu_damp )
-    print tdr
+    print (tdr)
     tsf = "scale = %.3f Volts/(m/sec)( Avg. amp: %.2f)" % ( best_scale, amp_average )
-    print tsf
+    print (tsf)
     spz = "File: %s" % ( sac_pz_file )
     #f.write("ZEROS {}\n".format(len(resp['zeros']) + 1 ))
     zzz = "ZEROS: {}".format(len(resp['zeros']) + 1 )
@@ -1358,7 +1342,7 @@ msu_damp, amp_average, amp_label, channel, sac_pz_file,target_dir,caltime):
       #      f.write("{:e} {:e}\n".format(pole.real, pole.imag))
         rsp = rsp+"real:  {:e} Imaginary:  {:e}\n".format(pole.real, pole.imag)
        # f.write("CONSTANT {:e}".format(resp['gain']))
-    print "\nsensor gain constant {:2.3f} Volts/(m/sec)".format(resp['gain'])
+    print ("\nsensor gain constant {:2.3f} Volts/(m/sec)".format(resp['gain']))
  
 
                              # post results as text lines on the plot
@@ -1399,8 +1383,8 @@ msu_damp, amp_average, amp_label, channel, sac_pz_file,target_dir,caltime):
 
     fig = target_dir+"\\"+caltime+'_'+channel + '_freq_v_amp' + '.png' # Place it in current working directory - drb
     txt = "best-fit freq. vs amplitude: \n    %s" % ( fig )
-    print "\n"
-    print txt
+    print ("\n")
+    print (txt)
     plt.savefig( fig )
 
     plt.show()
@@ -1433,8 +1417,8 @@ msu_damp, amp_average, amp_label, channel, sac_pz_file,target_dir,caltime):
     plt.grid(True, which='minor')
     fig = target_dir+"\\"+caltime+'_'+channel +'_freq_v_phase.png' # save in data directory
     txt = "best-fit frequency vs phase: \n    %s" % ( fig )
-    print "\n"
-    print txt
+    print ("\n")
+    print (txt)
     plt.savefig( fig )
 #    plt.show()
     plt.close()
@@ -1453,14 +1437,14 @@ def grid_search(outfile,nsearch,lmult,hmult,target_dir):                 # Subro
                                           #
                                           # Prepare to make the poles and zeroes from Hans Hartse gridsearch algorithm
                                           # Set up the control constants.
-#    print"Grid search will iterate through several scenarios in order to find "
-#    print"a best fit poles & zeros combination to describe the sensitivity curve."
-#    print"\nThere are several options for this search:"
-#    print"Option 0: Constrain all parameters to the calibration file (no grid search)"
-#    print"Option 1: Optimize amplitude but constrain damping ratio and free period"
-#    print"Option 2: Optimize amplitude, damping ratio but constrain free period"
-#    print"Option 3: Optimize for amplitude, damping ratio and free period"
-#    print"\n Most calibrations are best served with option 1.\n"
+#    print("Grid search will iterate through several scenarios in order to find ")
+#    print("a best fit poles & zeros combination to describe the sensitivity curve.")
+#    print("\nThere are several options for this search:")
+#    print("Option 0: Constrain all parameters to the calibration file (no grid search)")
+#    print("Option 1: Optimize amplitude but constrain damping ratio and free period")
+#    print("Option 2: Optimize amplitude, damping ratio but constrain free period")
+#    print("Option 3: Optimize for amplitude, damping ratio and free period")
+#    print("\n Most calibrations are best served with option 1.\n")
 
 #    Inputstring = raw_input("\n\n Choose grid search option: 0,1,2, or 3):")
 #    if (Inputstring == ""):
@@ -1497,7 +1481,7 @@ def grid_search(outfile,nsearch,lmult,hmult,target_dir):                 # Subro
 
     caltime = strftime("%Y_%m_%d %H_%M_%S",gmtime())
     channel = network+"_"+station+'_'+chname
-    # print "okay here is channel --> {}".format(channel)
+    # print ("okay here is channel --> {}".format(channel))
     freq_msu = []                         # Initialize the frequency array
     amp_msu = []                          # Initialize the matching amplitude array
     quality = []
@@ -1507,7 +1491,7 @@ def grid_search(outfile,nsearch,lmult,hmult,target_dir):                 # Subro
         freq_msu.append(float(fdata[1][i][0]))     # Field 0 is the frequency
         amp_msu.append(float(fdata[1][i][1]))      # Field 1 is the average sensitivity     
    #     else:
-   #         print "Frequency point {0} with amplitude {1} not plotted because of quality {2}." \
+   #         print ("Frequency point {0} with amplitude {1} not plotted because of quality {2}." \)
    #               .format(fdata[1][i][0],fdata[1][i][1],fdata[1][i][2])
 
                                           #    plot_curve(Station,Frequencies,Sensitivities,Freeperiod,h)
